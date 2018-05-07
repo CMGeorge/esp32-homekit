@@ -1,6 +1,8 @@
-COMPONENT_SRCDIRS := src wolfssl/src wolfssl/wolfcrypt/src
-COMPONENT_ADD_INCLUDEDIRS := include
-COMPONENT_PRIV_INCLUDEDIRS := wolfssl src
+COMPONENT_SRCDIRS := src wolfssl/src wolfssl/wolfcrypt/src esp32_digital_led_lib
+COMPONENT_ADD_INCLUDEDIRS := include esp32_digital_led_lib/include
+COMPONENT_PRIV_INCLUDEDIRS := wolfssl src esp32_digital_led_lib
+
+LED_STRIPE_OBJS := esp32_digital_led_lib/esp32_digital_led_lib.o
 
 HOMEKIT_OBJS := $(patsubst %.c,%.o,$(wildcard $(COMPONENT_PATH)/src/*.c))
 HOMEKIT_OBJS := $(patsubst $(COMPONENT_PATH)/%,%,$(HOMEKIT_OBJS))
@@ -40,7 +42,7 @@ WOLFSSL_OBJS := \
     wolfssl/wolfcrypt/src/wc_port.o \
     wolfssl/wolfcrypt/src/wc_encrypt.o
 
-COMPONENT_OBJS := $(HOMEKIT_OBJS) $(WOLFSSL_OBJS) 
+COMPONENT_OBJS := $(HOMEKIT_OBJS) $(WOLFSSL_OBJS) $(LED_STRIPE_OBJS)
 
 WOLFSSL_SETTINGS =        \
     -DSIZEOF_LONG_LONG=8  \

@@ -14,6 +14,7 @@
 #include "hap.h"
 
 
+#include "esp32_digital_led_lib.h"
 
 #define TAG "SWITCH"
 
@@ -32,6 +33,8 @@
 #endif
 
 static gpio_num_t LED_PORT = GPIO_NUM_2;
+#define LED_STRIPE 22
+#define num_pixels 60
 
 /* FreeRTOS event group to signal when we are connected & ready to make a request */
 static EventGroupHandle_t wifi_event_group;
@@ -44,6 +47,9 @@ static void* a;
 static void* _ev_handle;
 static int led = false;
 
+static strand_t strands[] = {{.rmtChannel = 0, .gpioNum = LED_STRIPE, .ledType = LED_SK6812W_V1, .brightLimit = 255, .numPixels = num_pixels,
+   .pixels = NULL, ._stateVars = NULL}};
+
 void* led_read(void* arg)
 {
     printf("[MAIN] LED READ\n");
@@ -54,14 +60,20 @@ void led_write(void* arg, void* value, int len)
 {
     printf("[MAIN] LED WRITE. %d\n", (int)value);
 
-    led = (int)value;
+    led = (int) value;
+    strand_t *strand = &(strands[0]);
     if (value) {
         led = true;
+        for (uint16_t i = 0; i < strand->numPixels; i++) {
+            strand->pixels[i] = pixelFromRGBW(254,254,254,254);
+        }
+        digitalLeds_updatePixels(strand);
         gpio_set_level(LED_PORT, 1);
     }
     else {
         led = false;
         gpio_set_level(LED_PORT, 0);
+        digitalLeds_resetPixels(strand);
     }
 
     if (_ev_handle)
@@ -170,5 +182,12 @@ void app_main()
     gpio_pad_select_gpio(LED_PORT);
     gpio_set_direction(LED_PORT, GPIO_MODE_OUTPUT);
 
+    /* for the led stripe */
+    gpio_pad_select_gpio((gpio_num_t) LED_STRIPE);
+    gpio_set_direction((gpio_num_t) LED_STRIPE, GPIO_MODE_OUTPUT);
+    gpio_set_level((gpio_num_t) LED_STRIPE, 0);
+
+    digitalLeds_initStrands(strands, 1);
+    
     wifi_init_sta();
 }

@@ -17,10 +17,10 @@
 
 #include "esp32_digital_led_lib.h"
 
-#define TAG "LED_STRIPE"
+#define TAG "LED STRIPE"
 #define PIN_CODE "123-58-197"
 
-#define ACCESSORY_NAME  "LED_STRIPE"
+#define ACCESSORY_NAME  "LED STRIPE"
 #define MANUFACTURER_NAME   "TASSILO KARGE"
 #define MODEL_NAME  "ULTILED"
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
@@ -51,7 +51,7 @@ static void* a;
 static int led = true;
 static void* led_ev_handle;
 #define switch_flag 'I'
-static int brightness = 80;
+static int brightness = 0;
 static void* brightness_ev_handle;
 #define brightness_flag 'V'
 static int saturation = 0;
@@ -69,7 +69,7 @@ void hsvToRGBW(float hue, float saturation, float brightness,
     
     double r = 0, g = 0, b = 0;
 
-    double h = hue * 360.0 / (2 * M_PI);
+    double h = hue;
     double s = saturation / 100.0;
     double v = brightness / 100.0;
 
@@ -82,7 +82,7 @@ void hsvToRGBW(float hue, float saturation, float brightness,
         int i;
         double f, p, q, t;
 
-        if (h == 360)
+        if (h >= 360)
             h = 0;
         else
             h = h / 60;
@@ -138,6 +138,20 @@ void hsvToRGBW(float hue, float saturation, float brightness,
     *blue = b * 255;
 }
 
+void set_values_to_led() {
+    int r, g, b, w;
+    hsvToRGBW(hue/100.0, saturation/100.0, brightness*led, &r, &g, &b, &w);
+
+    strand_t *strand = &(strands[0]);
+
+    for (uint16_t i = 0; i < strand->numPixels; i++) {
+            strand->pixels[i] = pixelFromRGBW(
+                r,g,b,w);
+    }
+    digitalLeds_updatePixels(strand);
+    gpio_set_level(LED_PORT, led ? 1 : 0);
+}
+
 void* led_read(void* arg)
 {
     int c = (int) arg;
@@ -177,17 +191,7 @@ void led_write(void* arg, void* value, int len)
     printf("[MAIN] LED WRITE. Arg: %d ON: %d H: %.2f S: %.2f V: %d \n", 
         c, led, hue/100.0, saturation/100.0, brightness);
 
-    int r, g, b, w;
-    hsvToRGBW(hue/100.0, saturation/100.0, brightness, &r, &g, &b, &w);
-
-    strand_t *strand = &(strands[0]);
-
-    for (uint16_t i = 0; i < strand->numPixels; i++) {
-            strand->pixels[i] = pixelFromRGBW(
-                r,g,b,w);
-    }
-    digitalLeds_updatePixels(strand);
-    gpio_set_level(LED_PORT, led ? 1 : 0);
+    set_values_to_led();
 
     switch(c) {
         case switch_flag:
@@ -320,23 +324,25 @@ void *identify_read(void* arg)
 void hap_object_init(void* arg)
 {
     void* accessory_object = hap_accessory_add(a);
+    
     struct hap_characteristic cs[] = {
         {HAP_CHARACTER_IDENTIFY, (void*)true, NULL, identify_read, NULL, NULL},
         {HAP_CHARACTER_MANUFACTURER, (void*)MANUFACTURER_NAME, NULL, NULL, NULL, NULL},
         {HAP_CHARACTER_MODEL, (void*)MODEL_NAME, NULL, NULL, NULL, NULL},
         {HAP_CHARACTER_NAME, (void*)ACCESSORY_NAME, NULL, NULL, NULL, NULL},
         {HAP_CHARACTER_SERIAL_NUMBER, (void*)"0123456789", NULL, NULL, NULL, NULL},
-        {HAP_CHARACTER_FIRMWARE_REVISION, (void*)"1.0", NULL, NULL, NULL, NULL},
+        {HAP_CHARACTER_FIRMWARE_REVISION, (void*)"1.1", NULL, NULL, NULL, NULL},
     };
+
     hap_service_and_characteristics_add(a, accessory_object, HAP_SERVICE_ACCESSORY_INFORMATION, cs, ARRAY_SIZE(cs));
 
     struct hap_characteristic cc[] = {
-        //{HAP_CHARACTER_ON, (void*)led, (void*)switch_flag, switch_read, switch_write, switch_notify},
-        {HAP_CHARACTER_BRIGHTNESS, (void *)brightness, (void*)brightness_flag, brightness_read, brightness_write, brightness_notify},
-        {HAP_CHARACTER_HUE, (void *)hue, (void*)hue_flag, hue_read, hue_write, hue_notify},
-        {HAP_CHARACTER_SATURATION, (void *)saturation, (void*)saturation_flag, saturation_read, saturation_write, saturation_notify}
+        {HAP_CHARACTER_ON, (void*)led, NULL, switch_read, switch_write, switch_notify},
+        //{HAP_CHARACTER_BRIGHTNESS, (void*)brightness, NULL, brightness_read, brightness_write, brightness_notify},
+        //{HAP_CHARACTER_HUE, (void*)hue, NULL, hue_read, hue_write, hue_notify},
+        //{HAP_CHARACTER_SATURATION, (void*)saturation, NULL, saturation_read, saturation_write, saturation_notify}
     };
-    hap_service_and_characteristics_add(a, accessory_object, HAP_SERVICE_SWITCHS, cc, ARRAY_SIZE(cc));
+    hap_service_and_characteristics_add(a, accessory_object, HAP_SERVICE_LIGHTBULB, cc, ARRAY_SIZE(cc));
 }
 
 
@@ -411,7 +417,8 @@ void app_main()
 
     digitalLeds_initStrands(strands, 1);
 
-    led_write((void*) switch_flag, (void*) 1, 1);
+    //set defaults when powering on
+    set_values_to_led();
     
     wifi_init_sta();
 }

@@ -1,4 +1,5 @@
 #include <string.h>
+#include <math.h>
 #include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -16,11 +17,12 @@
 
 #include "esp32_digital_led_lib.h"
 
-#define TAG "SWITCH"
+#define TAG "LED_STRIPE"
+#define PIN_CODE "123-58-197"
 
-#define ACCESSORY_NAME  "SWITCH"
-#define MANUFACTURER_NAME   "YOUNGHYUN"
-#define MODEL_NAME  "ESP32_ACC"
+#define ACCESSORY_NAME  "LED_STRIPE"
+#define MANUFACTURER_NAME   "TASSILO KARGE"
+#define MODEL_NAME  "ULTILED"
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
 
 #if 1
@@ -44,57 +46,274 @@ const int WIFI_CONNECTED_BIT = BIT0;
    but we only care about one event - are we connected
    to the AP with an IP? */
 static void* a;
-static void* _ev_handle;
-static int led = false;
+
+/* characteristics values, their event handles and their flag:s */
+static int led = true;
+static void* led_ev_handle;
+#define switch_flag 'I'
+static int brightness = 80;
+static void* brightness_ev_handle;
+#define brightness_flag 'V'
+static int saturation = 0;
+static void* saturation_ev_handle;
+#define saturation_flag 'S'
+static int hue = 0;
+static void* hue_ev_handle;
+#define hue_flag 'H'
 
 static strand_t strands[] = {{.rmtChannel = 0, .gpioNum = LED_STRIPE, .ledType = LED_SK6812W_V1, .brightLimit = 255, .numPixels = num_pixels,
    .pixels = NULL, ._stateVars = NULL}};
 
+void hsvToRGBW(float hue, float saturation, float brightness, 
+    int *red, int *green, int *blue, int *white) {
+    
+    double r = 0, g = 0, b = 0;
+
+    double h = hue * 360.0 / (2 * M_PI);
+    double s = saturation / 100.0;
+    double v = brightness / 100.0;
+
+    if (s <= 0)
+    {
+        r = v;
+        g = v;
+        b = v;
+    } else {
+        int i;
+        double f, p, q, t;
+
+        if (h == 360)
+            h = 0;
+        else
+            h = h / 60;
+
+        i = (int)trunc(h);
+        f = h - i;
+
+        p = v * (1.0 - s);
+        q = v * (1.0 - (s * f));
+        t = v * (1.0 - (s * (1.0 - f)));
+
+        switch (i)
+        {
+        case 0:
+            r = v;
+            g = t;
+            b = p;
+            break;
+
+        case 1:
+            r = q;
+            g = v;
+            b = p;
+            break;
+
+        case 2:
+            r = p;
+            g = v;
+            b = t;
+            break;
+
+        case 3:
+            r = p;
+            g = q;
+            b = v;
+            break;
+
+        case 4:
+            r = t;
+            g = p;
+            b = v;
+            break;
+
+        default:
+            r = v;
+            g = p;
+            b = q;
+            break;
+        }
+    }
+    *red = r * 255;
+    *green = g * 255;
+    *blue = b * 255;
+}
+
 void* led_read(void* arg)
 {
-    printf("[MAIN] LED READ\n");
-    return (void*)led;
+    int c = (int) arg;
+    printf("[MAIN] LED READ %d \n", c);
+    switch(c) {
+        case switch_flag:
+            return (void *)led;
+        case brightness_flag:
+            return (void *)brightness;
+        case hue_flag:
+            return (void *)hue;
+        case saturation_flag:
+            return (void *)saturation;
+    }
+
+    return NULL;
 }
 
 void led_write(void* arg, void* value, int len)
 {
-    printf("[MAIN] LED WRITE. %d\n", (int)value);
+    int c = (int) arg;
+    switch(c) {
+        case switch_flag:
+            led = ((int) value) ? true : false;
+            break;
+        case brightness_flag:
+            brightness = (int) value;
+            break;
+        case hue_flag:
+            hue = (int) value;
+            break;
+        case saturation_flag:
+            saturation = (int) value;
+            break;
+    }
+    
+    printf("[MAIN] LED WRITE. Arg: %d ON: %d H: %.2f S: %.2f V: %d \n", 
+        c, led, hue/100.0, saturation/100.0, brightness);
 
-    led = (int) value;
+    int r, g, b, w;
+    hsvToRGBW(hue/100.0, saturation/100.0, brightness, &r, &g, &b, &w);
+
     strand_t *strand = &(strands[0]);
-    if (value) {
-        led = true;
-        for (uint16_t i = 0; i < strand->numPixels; i++) {
-            strand->pixels[i] = pixelFromRGBW(254,254,254,254);
-        }
-        digitalLeds_updatePixels(strand);
-        gpio_set_level(LED_PORT, 1);
-    }
-    else {
-        led = false;
-        gpio_set_level(LED_PORT, 0);
-        digitalLeds_resetPixels(strand);
-    }
 
-    if (_ev_handle)
-        hap_event_response(a, _ev_handle, (void*)led);
+    for (uint16_t i = 0; i < strand->numPixels; i++) {
+            strand->pixels[i] = pixelFromRGBW(
+                r,g,b,w);
+    }
+    digitalLeds_updatePixels(strand);
+    gpio_set_level(LED_PORT, led ? 1 : 0);
+
+    switch(c) {
+        case switch_flag:
+            if (led_ev_handle)
+                hap_event_response(a, led_ev_handle, (void *)led);
+            break;
+        case brightness_flag:
+            if (brightness_ev_handle)
+                hap_event_response(a, brightness_ev_handle, (void *)brightness);
+            break;
+        case hue_flag:
+            if (hue_ev_handle)
+                hap_event_response(a, hue_ev_handle, (void *)hue);
+            break;
+        case saturation_flag:
+            if (saturation_ev_handle)
+                hap_event_response(a, saturation_ev_handle, (void *)saturation);
+            break;
+    }
 
     return;
 }
 
 void led_notify(void* arg, void* ev_handle, bool enable)
 {
+    int c = (int) arg;
+    printf("[MAIN] LED NOTIFY %d \n", c);   
+    
     if (enable) {
-        _ev_handle = ev_handle;
-    }
-    else {
-        _ev_handle = NULL;
+        switch(c) {
+        case switch_flag:
+            led_ev_handle = ev_handle;
+            break;
+        case brightness_flag:
+            brightness_ev_handle = ev_handle;
+            break;
+        case hue_flag:
+            hue_ev_handle = ev_handle;
+            break;
+        case saturation_flag:
+            saturation_ev_handle = ev_handle;
+            break;
+        }
+    } else {
+        switch(c) {
+        case switch_flag:
+            led_ev_handle = NULL;
+            break;
+        case brightness_flag:
+            brightness_ev_handle = NULL;
+            break;
+        case hue_flag:
+            hue_ev_handle = NULL;
+            break;
+        case saturation_flag:
+            saturation_ev_handle = NULL;
+            break;
+        }
     }
 }
 
-static bool _identifed = false;
-void* identify_read(void* arg)
+void* switch_read(void* arg)
 {
+    return led_read((void *)switch_flag);
+}
+
+void* hue_read(void* arg)
+{
+    return led_read((void *)hue_flag);
+}
+
+void* saturation_read(void* arg)
+{
+    return led_read((void *)saturation_flag);
+}
+
+void* brightness_read(void* arg)
+{
+    return led_read((void *)brightness_flag);
+}
+
+void switch_write(void* arg, void* value, int len)
+{
+    led_write((void *)switch_flag, value, len);
+}
+
+void hue_write(void* arg, void* value, int len)
+{
+    led_write((void *)hue_flag, value, len);
+}
+
+void saturation_write(void* arg, void* value, int len)
+{
+    led_write((void *)saturation_flag, value, len);
+}
+
+void brightness_write(void* arg, void* value, int len)
+{
+    led_write((void *)brightness_flag, value, len);
+}
+
+void switch_notify(void* arg, void* ev_handle, bool enable)
+{
+    led_notify((void *)switch_flag, ev_handle, enable);
+}
+
+void hue_notify(void* arg, void* ev_handle, bool enable)
+{
+    led_notify((void *)hue_flag, ev_handle, enable);
+}
+
+void saturation_notify(void* arg, void* ev_handle, bool enable)
+{
+    led_notify((void *)saturation_flag, ev_handle, enable);}
+
+void brightness_notify(void* arg, void* ev_handle, bool enable)
+{
+    led_notify((void *)brightness_flag, ev_handle, enable);
+}
+
+static bool _identifed = false;
+void *identify_read(void* arg)
+{
+    int c = (int) arg;
+    printf("[MAIN] IDENTIFY READ %d \n", c);
+
     return (void*)true;
 }
 
@@ -112,7 +331,10 @@ void hap_object_init(void* arg)
     hap_service_and_characteristics_add(a, accessory_object, HAP_SERVICE_ACCESSORY_INFORMATION, cs, ARRAY_SIZE(cs));
 
     struct hap_characteristic cc[] = {
-        {HAP_CHARACTER_ON, (void*)led, NULL, led_read, led_write, led_notify},
+        //{HAP_CHARACTER_ON, (void*)led, (void*)switch_flag, switch_read, switch_write, switch_notify},
+        {HAP_CHARACTER_BRIGHTNESS, (void *)brightness, (void*)brightness_flag, brightness_read, brightness_write, brightness_notify},
+        {HAP_CHARACTER_HUE, (void *)hue, (void*)hue_flag, hue_read, hue_write, hue_notify},
+        {HAP_CHARACTER_SATURATION, (void *)saturation, (void*)saturation_flag, saturation_read, saturation_write, saturation_notify}
     };
     hap_service_and_characteristics_add(a, accessory_object, HAP_SERVICE_SWITCHS, cc, ARRAY_SIZE(cc));
 }
@@ -137,7 +359,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
             sprintf(accessory_id, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
             hap_accessory_callback_t callback;
             callback.hap_object_init = hap_object_init;
-            a = hap_accessory_register((char*)ACCESSORY_NAME, accessory_id, (char*)"053-58-197", (char*)MANUFACTURER_NAME, HAP_ACCESSORY_CATEGORY_OTHER, 811, 1, NULL, &callback);
+            a = hap_accessory_register((char*)ACCESSORY_NAME, accessory_id, (char*)PIN_CODE, (char*)MANUFACTURER_NAME, HAP_ACCESSORY_CATEGORY_LIGHTBULB, 811, 1, NULL, &callback);
         }
         break;
     case SYSTEM_EVENT_STA_DISCONNECTED:
@@ -188,6 +410,8 @@ void app_main()
     gpio_set_level((gpio_num_t) LED_STRIPE, 0);
 
     digitalLeds_initStrands(strands, 1);
+
+    led_write((void*) switch_flag, (void*) 1, 1);
     
     wifi_init_sta();
 }

@@ -253,65 +253,6 @@ void led_notify(void* arg, void* ev_handle, bool enable)
     }
 }
 
-void* switch_read(void* arg)
-{
-    return led_read((void *)switch_flag);
-}
-
-void* hue_read(void* arg)
-{
-    return led_read((void *)hue_flag);
-}
-
-void* saturation_read(void* arg)
-{
-    return led_read((void *)saturation_flag);
-}
-
-void* brightness_read(void* arg)
-{
-    return led_read((void *)brightness_flag);
-}
-
-void switch_write(void* arg, void* value, int len)
-{
-    led_write((void *)switch_flag, value, len);
-}
-
-void hue_write(void* arg, void* value, int len)
-{
-    led_write((void *)hue_flag, value, len);
-}
-
-void saturation_write(void* arg, void* value, int len)
-{
-    led_write((void *)saturation_flag, value, len);
-}
-
-void brightness_write(void* arg, void* value, int len)
-{
-    led_write((void *)brightness_flag, value, len);
-}
-
-void switch_notify(void* arg, void* ev_handle, bool enable)
-{
-    led_notify((void *)switch_flag, ev_handle, enable);
-}
-
-void hue_notify(void* arg, void* ev_handle, bool enable)
-{
-    led_notify((void *)hue_flag, ev_handle, enable);
-}
-
-void saturation_notify(void* arg, void* ev_handle, bool enable)
-{
-    led_notify((void *)saturation_flag, ev_handle, enable);}
-
-void brightness_notify(void* arg, void* ev_handle, bool enable)
-{
-    led_notify((void *)brightness_flag, ev_handle, enable);
-}
-
 static bool _identifed = false;
 void *identify_read(void* arg)
 {
@@ -337,10 +278,10 @@ void hap_object_init(void* arg)
     hap_service_and_characteristics_add(a, accessory_object, HAP_SERVICE_ACCESSORY_INFORMATION, cs, ARRAY_SIZE(cs));
 
     struct hap_characteristic cc[] = {
-        {HAP_CHARACTER_ON, (void*)led, NULL, switch_read, switch_write, switch_notify},
-        //{HAP_CHARACTER_BRIGHTNESS, (void*)brightness, NULL, brightness_read, brightness_write, brightness_notify},
-        //{HAP_CHARACTER_HUE, (void*)hue, NULL, hue_read, hue_write, hue_notify},
-        //{HAP_CHARACTER_SATURATION, (void*)saturation, NULL, saturation_read, saturation_write, saturation_notify}
+        {HAP_CHARACTER_ON, (void*)led, (void*)switch_flag, led_read, led_write, led_notify},
+        {HAP_CHARACTER_BRIGHTNESS, (void*)brightness, (void*)brightness_flag, led_read, led_write, led_notify},
+        {HAP_CHARACTER_HUE, (void*)hue, (void*)hue_flag, led_read, led_write, led_notify},
+        {HAP_CHARACTER_SATURATION, (void*)saturation, (void*)saturation_flag, led_read, led_write, led_notify}
     };
     hap_service_and_characteristics_add(a, accessory_object, HAP_SERVICE_LIGHTBULB, cc, ARRAY_SIZE(cc));
 }

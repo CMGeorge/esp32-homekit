@@ -38,6 +38,10 @@ static gpio_num_t LED_PORT = GPIO_NUM_2;
 #define LED_STRIPE 22
 #define num_pixels 60
 
+#ifndef max
+    #define max(a,b) ((a) > (b) ? (a) : (b))
+#endif
+
 /* FreeRTOS event group to signal when we are connected & ready to make a request */
 static EventGroupHandle_t wifi_event_group;
 const int WIFI_CONNECTED_BIT = BIT0;
@@ -51,27 +55,25 @@ static void* a;
 static int led = true;
 static void* led_ev_handle;
 #define switch_flag 'I'
-static int brightness = 0;
+static int brightness = 80;
 static void* brightness_ev_handle;
 #define brightness_flag 'V'
-static int saturation = 0;
+static int saturation = 5000;
 static void* saturation_ev_handle;
 #define saturation_flag 'S'
-static int hue = 0;
+static int hue = 6000;
 static void* hue_ev_handle;
 #define hue_flag 'H'
 
-static strand_t strands[] = {{.rmtChannel = 0, .gpioNum = LED_STRIPE, .ledType = LED_SK6812W_V1, .brightLimit = 255, .numPixels = num_pixels,
+static strand_t strands[] = {{.rmtChannel = 0, .gpioNum = LED_STRIPE, .ledType = LED_SK6812W_V1, .brightLimit = 200, .numPixels = num_pixels,
    .pixels = NULL, ._stateVars = NULL}};
 
-void hsvToRGBW(float hue, float saturation, float brightness, 
+void hsvToRGBW(float h, float s, float v, 
     int *red, int *green, int *blue, int *white) {
     
-    double r = 0, g = 0, b = 0;
+    *white = max(((v - s) - 0.5) * 2 * 255, 0);
 
-    double h = hue;
-    double s = saturation / 100.0;
-    double v = brightness / 100.0;
+    double r = 0, g = 0, b = 0;
 
     if (s <= 0)
     {
@@ -133,6 +135,7 @@ void hsvToRGBW(float hue, float saturation, float brightness,
             break;
         }
     }
+
     *red = r * 255;
     *green = g * 255;
     *blue = b * 255;
@@ -140,7 +143,17 @@ void hsvToRGBW(float hue, float saturation, float brightness,
 
 void set_values_to_led() {
     int r, g, b, w;
-    hsvToRGBW(hue/100.0, saturation/100.0, brightness*led, &r, &g, &b, &w);
+    //saturation and brightness expected in values 0-1
+    hsvToRGBW(hue/100.0, saturation/100.0/100.0, (brightness*led)/100.0, &r, &g, &b, &w);
+
+    int brightLimit = strands[0].brightLimit;
+    r = (r * brightLimit) / 255;
+    g = (g * brightLimit) / 255;
+    b = (b * brightLimit) / 255;
+    w = (w * brightLimit) / 255;
+
+    printf("SET VALUES: ON: %d\nH: %.2f S: %.2f V: %d\nR: %d G: %d B: %d W: %d\n", 
+        led, hue/100.0, saturation/100.0, brightness, r, g, b, w);
 
     strand_t *strand = &(strands[0]);
 
@@ -155,7 +168,7 @@ void set_values_to_led() {
 void* led_read(void* arg)
 {
     int c = (int) arg;
-    printf("[MAIN] LED READ %d \n", c);
+    printf("[MAIN] LED READ %c \n", (char)c);
     switch(c) {
         case switch_flag:
             return (void *)led;
@@ -181,15 +194,16 @@ void led_write(void* arg, void* value, int len)
             brightness = (int) value;
             break;
         case hue_flag:
-            hue = (int) value;
+            //hue is float, but does not come multiplied with 100 as expected
+            hue = (int) value * 100;
             break;
         case saturation_flag:
-            saturation = (int) value;
+            //hue is float, but does not come multiplied with 100 as expected
+            saturation = (int) value * 100;
             break;
     }
-    
-    printf("[MAIN] LED WRITE. Arg: %d ON: %d H: %.2f S: %.2f V: %d \n", 
-        c, led, hue/100.0, saturation/100.0, brightness);
+
+    printf("[MAIN] LED WRITE. Arg: %c\n", (char)c);
 
     set_values_to_led();
 
@@ -218,7 +232,7 @@ void led_write(void* arg, void* value, int len)
 void led_notify(void* arg, void* ev_handle, bool enable)
 {
     int c = (int) arg;
-    printf("[MAIN] LED NOTIFY %d \n", c);   
+    printf("[MAIN] LED NOTIFY %c \n", (char)c);   
     
     if (enable) {
         switch(c) {
@@ -257,7 +271,7 @@ static bool _identifed = false;
 void *identify_read(void* arg)
 {
     int c = (int) arg;
-    printf("[MAIN] IDENTIFY READ %d \n", c);
+    printf("[MAIN] IDENTIFY READ %c \n", (char)c);
 
     return (void*)true;
 }

@@ -147,10 +147,10 @@ void set_values_to_led() {
     hsvToRGBW(hue/100.0, saturation/100.0/100.0, (brightness*led)/100.0, &r, &g, &b, &w);
 
     int brightLimit = strands[0].brightLimit;
-    r = (r * brightLimit) / 255;
-    g = (g * brightLimit) / 255;
-    b = (b * brightLimit) / 255;
-    w = (w * brightLimit) / 255;
+    r = (r*r * brightLimit) / 65025;
+    g = (g*g * brightLimit) / 65025;
+    b = (b*b * brightLimit) / 65025;
+    w = (w*w * brightLimit) / 65025;
 
     printf("SET VALUES: ON: %d\nH: %.2f S: %.2f V: %d\nR: %d G: %d B: %d W: %d\n", 
         led, hue/100.0, saturation/100.0, brightness, r, g, b, w);

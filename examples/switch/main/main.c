@@ -20,7 +20,7 @@
 #define TAG "LED STRIPE"
 #define PIN_CODE "123-58-197"
 
-#define ACCESSORY_NAME  "LED STRIPE"
+#define ACCESSORY_NAME  "Deckenlampe"
 #define MANUFACTURER_NAME   "TASSILO KARGE"
 #define MODEL_NAME  "ULTILED"
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
@@ -62,19 +62,19 @@ static void* led_ev_handle;
 static int brightness = 80;
 static void* brightness_ev_handle;
 #define brightness_flag 'V'
-static int saturation = 5000;
+static int saturation = 6500;
 static void* saturation_ev_handle;
 #define saturation_flag 'S'
-static int hue = 6000;
+static int hue = 3900;
 static void* hue_ev_handle;
 #define hue_flag 'H'
 
 static strand_t strands[] = {
-    {.rmtChannel = 0, .gpioNum = LED_STRIPE, .ledType = LED_SK6812W_V1, .brightLimit = 230, .numPixels = num_pixels,
+    {.rmtChannel = 0, .gpioNum = LED_STRIPE, .ledType = LED_SK6812W_V1, .brightLimit = 250, .numPixels = num_pixels,
    .pixels = NULL, ._stateVars = NULL},
-    {.rmtChannel = 1, .gpioNum = LED_STRIPE2, .ledType = LED_SK6812W_V1, .brightLimit = 230, .numPixels = num_pixels2,
+    {.rmtChannel = 1, .gpioNum = LED_STRIPE2, .ledType = LED_SK6812W_V1, .brightLimit = 250, .numPixels = num_pixels2,
    .pixels = NULL, ._stateVars = NULL},
-   {.rmtChannel = 2, .gpioNum = LED_STRIPE3, .ledType = LED_SK6812W_V1, .brightLimit = 230, .numPixels = num_pixels3,
+   {.rmtChannel = 2, .gpioNum = LED_STRIPE3, .ledType = LED_SK6812W_V1, .brightLimit = 250, .numPixels = num_pixels3,
    .pixels = NULL, ._stateVars = NULL}};
 
 int STRANDCNT = sizeof(strands)/sizeof(strands[0]);

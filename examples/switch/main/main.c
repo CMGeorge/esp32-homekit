@@ -36,7 +36,11 @@
 
 static gpio_num_t LED_PORT = GPIO_NUM_2;
 #define LED_STRIPE 22
-#define num_pixels 60
+#define LED_STRIPE2 21
+#define LED_STRIPE3 19
+#define num_pixels 239
+#define num_pixels2 50
+#define num_pixels3 50
 
 #ifndef max
     #define max(a,b) ((a) > (b) ? (a) : (b))
@@ -65,8 +69,15 @@ static int hue = 6000;
 static void* hue_ev_handle;
 #define hue_flag 'H'
 
-static strand_t strands[] = {{.rmtChannel = 0, .gpioNum = LED_STRIPE, .ledType = LED_SK6812W_V1, .brightLimit = 200, .numPixels = num_pixels,
+static strand_t strands[] = {
+    {.rmtChannel = 0, .gpioNum = LED_STRIPE, .ledType = LED_SK6812W_V1, .brightLimit = 230, .numPixels = num_pixels,
+   .pixels = NULL, ._stateVars = NULL},
+    {.rmtChannel = 1, .gpioNum = LED_STRIPE2, .ledType = LED_SK6812W_V1, .brightLimit = 230, .numPixels = num_pixels2,
+   .pixels = NULL, ._stateVars = NULL},
+   {.rmtChannel = 2, .gpioNum = LED_STRIPE3, .ledType = LED_SK6812W_V1, .brightLimit = 230, .numPixels = num_pixels3,
    .pixels = NULL, ._stateVars = NULL}};
+
+int STRANDCNT = sizeof(strands)/sizeof(strands[0]);
 
 void hsvToRGBW(float h, float s, float v, 
     int *red, int *green, int *blue, int *white) {
@@ -155,13 +166,15 @@ void set_values_to_led() {
     printf("SET VALUES: ON: %d\nH: %.2f S: %.2f V: %d\nR: %d G: %d B: %d W: %d\n", 
         led, hue/100.0, saturation/100.0, brightness, r, g, b, w);
 
-    strand_t *strand = &(strands[0]);
+    for (int i = 0; i < STRANDCNT; i++) {
+        strand_t *strand = &(strands[i]);
 
-    for (uint16_t i = 0; i < strand->numPixels; i++) {
-            strand->pixels[i] = pixelFromRGBW(
-                r,g,b,w);
+        for (uint16_t i = 0; i < strand->numPixels; i++) {
+                strand->pixels[i] = pixelFromRGBW(
+                    r,g,b,w);
+        }
+        digitalLeds_updatePixels(strand);
     }
-    digitalLeds_updatePixels(strand);
     gpio_set_level(LED_PORT, led ? 1 : 0);
 }
 
@@ -365,12 +378,20 @@ void app_main()
     gpio_pad_select_gpio(LED_PORT);
     gpio_set_direction(LED_PORT, GPIO_MODE_OUTPUT);
 
-    /* for the led stripe */
+    /* for the led stripes */
     gpio_pad_select_gpio((gpio_num_t) LED_STRIPE);
     gpio_set_direction((gpio_num_t) LED_STRIPE, GPIO_MODE_OUTPUT);
     gpio_set_level((gpio_num_t) LED_STRIPE, 0);
 
-    digitalLeds_initStrands(strands, 1);
+    gpio_pad_select_gpio((gpio_num_t) LED_STRIPE2);
+    gpio_set_direction((gpio_num_t) LED_STRIPE2, GPIO_MODE_OUTPUT);
+    gpio_set_level((gpio_num_t) LED_STRIPE2, 0);
+
+    gpio_pad_select_gpio((gpio_num_t) LED_STRIPE3);
+    gpio_set_direction((gpio_num_t) LED_STRIPE3, GPIO_MODE_OUTPUT);
+    gpio_set_level((gpio_num_t) LED_STRIPE3, 0);
+
+    digitalLeds_initStrands(strands, STRANDCNT);
 
     //set defaults when powering on
     set_values_to_led();

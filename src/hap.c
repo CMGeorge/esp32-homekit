@@ -412,9 +412,9 @@ void* hap_accessory_add(void* acc_instance)
 {
     struct hap_accessory* a = acc_instance;
 
-    a->accessories_ojbects = hap_acc_accessory_add(acc_instance);
+    a->accessories_objects = hap_acc_accessory_add(acc_instance);
 
-    return a->accessories_ojbects;
+    return a->accessories_objects;
 }
 
 void hap_service_and_characteristics_add(void* acc_instance, void* acc_obj,

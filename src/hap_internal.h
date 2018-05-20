@@ -44,7 +44,7 @@ struct hap_accessory {
 
     void* callback_arg;
     hap_accessory_callback_t callback;
-    void* accessories_ojbects;
+    void* accessories_objects;
 };
 
 struct hap_connection {

@@ -20,7 +20,7 @@
 #include "pair_verify.h"
 #include "pairings.h"
 
-//#define DEBUG
+#define DEBUG
 
 #define TAG "HAP"
 

@@ -5,7 +5,7 @@
 
 #include "srp.h"
 
-//#define DEBUG
+#define DEBUG
 
 #define TAG "SRP"
 

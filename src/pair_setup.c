@@ -13,7 +13,7 @@
 #include "srp.h"
 #include "tlv.h"
 
-//#define DEBUG
+#define DEBUG
 
 struct pair_setup {
     char* acc_id;

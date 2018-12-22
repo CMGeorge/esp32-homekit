@@ -118,8 +118,8 @@ static cJSON* _value_to_formatized_json(struct hap_attr_characteristic* c, void*
         case FORMAT_INT:
             return cJSON_CreateNumber((int)value);
         case FORMAT_FLOAT: {
-            int value_interger = (int)value;
-            double floating_value = (double)value_interger / 100;
+            int integer_value = (int)value;
+            double floating_value = (double)integer_value / 100.0;
             return cJSON_CreateNumber(floating_value);
         }
         case FORMAT_STRING:
